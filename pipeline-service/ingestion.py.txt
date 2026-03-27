@@ -1,0 +1,34 @@
+import requests
+from database import SessionLocal
+from models import Customer
+
+FLASK_URL = "http://mock-server:5000/api/customers"
+
+def ingest_data():
+    db = SessionLocal()
+    page = 1
+    total = 0
+
+    while True:
+        res = requests.get(FLASK_URL, params={"page": page, "limit": 10})
+        data = res.json()["data"]
+
+        if not data:
+            break
+
+        for item in data:
+            existing = db.query(Customer).filter_by(customer_id=item["customer_id"]).first()
+
+            if existing:
+                for k, v in item.items():
+                    setattr(existing, k, v)
+            else:
+                db.add(Customer(**item))
+
+            total += 1
+
+        db.commit()
+        page += 1
+
+    db.close()
+    return total
